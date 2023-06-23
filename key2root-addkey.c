@@ -1,5 +1,6 @@
 /* See LICENSE file for copyright and license details. */
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -113,6 +114,10 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
+	if (mkdir(KEYPATH, 0700) && errno != EEXIST) {
+		fprintf(stderr, "%s: mkdir %s: %s\n", argv0, KEYPATH, strerror(errno));
+		exit(1);
+	}
 	fd = open(path2, O_WRONLY | O_CREAT | O_EXCL, 0600);
 	if (fd < 0) {
 		fprintf(stderr, "%s: open %s O_WRONLY|O_CREAT|O_EXCL 0600: %s\n", argv0, path2, strerror(errno));
