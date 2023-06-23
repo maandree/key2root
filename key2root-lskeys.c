@@ -91,7 +91,7 @@ listkeys(int dir, const char *user)
 			}
 		}
 		r = read(fd, &data[whead], size - whead);
-		if (r <= 0) {
+		if (r < 0) {
 			fprintf(stderr, "%s: read /etc/key2root/%s: %s\n", argv0, user, strerror(errno));
 			close(fd);
 			return 1;
@@ -102,8 +102,10 @@ listkeys(int dir, const char *user)
 			failed |= outputkey(data, whead, &rhead, &rhead2, &lineno, user);
 	}
 
-	if (rhead != whead)
+	if (rhead != whead) {
 		fprintf(stderr, "%s: file truncated: /etc/key2root/%s\n", argv0, user);
+		failed = 1;
+	}
 
 	close(fd);
 	return failed;

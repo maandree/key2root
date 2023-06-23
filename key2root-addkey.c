@@ -1,6 +1,10 @@
 /* See LICENSE file for copyright and license details. */
+#include <sys/mman.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "arg.h"
@@ -56,7 +60,14 @@ main(int argc, char *argv[])
 	if (failed)
 		return 1;
 
-	/* TODO */
+	if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
+		fprintf(stderr, "%s: mlockall MCL_CURRENT|MCL_FUTURE: %s\n", argv0, strerror(errno));
+		exit(1);
+	}
+
+	/* TODO hash input */
+	/* TODO add or replace key */
+	/* TODO save changes, mode shall be 0700 */
 
 	return 0;
 }
