@@ -164,6 +164,7 @@ main(int argc, char *argv[])
 #define HASH_PREFIX "$6$"
 	char generated_parameters[sizeof(HASH_PREFIX"$") + 16];
 	ssize_t r;
+	size_t i;
 
 	ARGBEGIN {
 	case 'r':
@@ -228,6 +229,9 @@ main(int argc, char *argv[])
 		}
 		key_len += (size_t)r;
 	}
+	for (i = 0; i < key_len; i++)
+		if (!key[i])
+			key[i] = 255;
 	key[key_len] = '\0';
 	hash = crypt(key, parameters);
 	if (!hash)
