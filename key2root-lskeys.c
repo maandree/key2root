@@ -103,8 +103,10 @@ listkeys(int dir, const char *user)
 	}
 
 	if (rhead != whead) {
-		fprintf(stderr, "%s: file truncated: %s/%s\n", argv0, KEYPATH, user);
 		failed = 1;
+		fprintf(stderr, "%s: file truncated: %s/%s\n", argv0, KEYPATH, user);
+		if (memchr(&data[rhead], '\0', whead - rhead))
+			fprintf(stderr, "%s: NUL byte found in %s/%s on line %zu\n", argv0, KEYPATH, user, lineno + 1);
 	}
 
 	close(fd);

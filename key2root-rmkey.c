@@ -116,8 +116,11 @@ loadandremove(int fd, char **datap, size_t *lenp, size_t *sizep, const char **ke
 			removekeys(*datap, lenp, &rhead, &rhead2, &lineno, path, keys, nkeysp);
 	}
 
-	if (rhead != *lenp)
+	if (rhead != *lenp) {
 		fprintf(stderr, "%s: file truncated: %s\n", argv0, path);
+		if (memchr(&(*datap)[rhead], '\0', *lenp - rhead))
+			fprintf(stderr, "%s: NUL byte found in %s on line %zu\n", argv0, path, lineno + 1);
+	}
 }
 
 
