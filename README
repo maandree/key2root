@@ -45,5 +45,5 @@ RATIONALE
 	authenticated himself rather also requiring his password.
 
 SEE ALSO
-	key2root-addkey(8), key2root-lskeys(8), key2root-rmkey(8), asroot(8),
-	sudo(8), doas(1), su(1)
+	key2root-addkey(8), key2root-crypt(8), key2root-lskeys(8),
+	key2root-rmkey(8), asroot(8), sudo(8), doas(1), su(1)

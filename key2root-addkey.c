@@ -1,6 +1,4 @@
 /* See LICENSE file for copyright and license details. */
-#include <sys/auxv.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -11,6 +9,7 @@
 #include <unistd.h>
 
 #include "arg.h"
+#include "crypt.h"
 
 
 char *argv0;
@@ -19,7 +18,7 @@ char *argv0;
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [-r] user key-name [crypt-parameters]\n", argv0);
+	fprintf(stderr, "usage: %s [-r] (user key-name [crypt-parameters] | -h user key-name key-hash)\n", argv0);
 	exit(1);
 }
 
@@ -119,27 +118,6 @@ loadandlocate(size_t *beginning_out, size_t *end_out, int fd, char **datap, size
 }
 
 
-static char *
-mksalt(char *p)
-{
-	uintptr_t rdata_addr;
-	char *rdata;
-	size_t i;
-
-	rdata_addr = (uintptr_t)getauxval(AT_RANDOM); /* address to 16 random bytes */
-	rdata = (void *)rdata_addr;
-	if (!rdata) {
-		fprintf(stderr, "%s: getauxval AT_RANDOM: %s\n", argv0, strerror(errno));
-		exit(1);
-	}
-
-	for (i = 0; i < 16; i++)
-		*p++ = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM0123456789./"[*rdata++ & 63];
-
-	return p;
-}
-
-
 int
 main(int argc, char *argv[])
 {
@@ -153,6 +131,7 @@ main(int argc, char *argv[])
 	size_t beginning = 0;
 	size_t end = 0;
 	int allow_replace = 0;
+	int add_hash = 0;
 	int failed = 0;
 	int fd;
 	char *key = NULL, *new;
@@ -161,12 +140,13 @@ main(int argc, char *argv[])
 	char *hash;
 	size_t gap_size;
 	size_t gap_increase;
-#define HASH_PREFIX "$6$"
-	char generated_parameters[sizeof(HASH_PREFIX"$") + 16];
 	ssize_t r;
 	size_t i;
 
 	ARGBEGIN {
+	case 'h':
+		add_hash = 1;
+		break;
 	case 'r':
 		allow_replace = 1;
 		break;
@@ -189,60 +169,64 @@ main(int argc, char *argv[])
 		fprintf(stderr, "%s: bad key name specified: %s, includes whitespace\n", argv0, keyname);
 		failed = 1;
 	}
-	if (isatty(STDIN_FILENO)) {
+	if (!add_hash && isatty(STDIN_FILENO)) {
 		fprintf(stderr, "%s: standard input must not be a TTY.\n", argv0);
 		failed = 1;
 	}
 	if (failed)
 		return 1;
 
-	if (mlockall(MCL_CURRENT | MCL_FUTURE))
-		fprintf(stderr, "%s: mlockall MCL_CURRENT|MCL_FUTURE: %s\n", argv0, strerror(errno));
-
-	if (!parameters) {
-		stpcpy(mksalt(stpcpy(generated_parameters, HASH_PREFIX)), "$");
-		parameters = generated_parameters;
-	}
-
-	for (;;) {
-		if (key_len == key_size) {
-			new = malloc(1 + (key_size += 1024));
-			if (!new) {
+	if (add_hash) {
+		for (i = 0; parameters[i]; i++) {
+			if (parameters[i] <= ' ' || parameters[i] >= 127) {
+				fprintf(stderr, "%s: key-hash may only contain printable ASCII characters\n", argv0);
+				exit(1);
+			}
+		}
+		key_size = key_len = strlen(keyname) + strlen(parameters) + 2;
+		key = malloc(key_len + 1);
+		if (!key) {
+			fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
+			exit(1);
+		}
+		stpcpy(stpcpy(stpcpy(stpcpy(key, keyname), " "), parameters), "\n");
+	} else {
+		for (;;) {
+			if (key_len == key_size) {
+				new = malloc(1 + (key_size += 1024));
+				if (!new) {
+					explicit_bzero(key, key_len);
+					fprintf(stderr, "%s: read <stdin>: %s\n", argv0, strerror(errno));
+					exit(1);
+				}
+				memcpy(new, key, key_len);
+				explicit_bzero(key, key_len);
+				free(key);
+				key = new;
+			}
+			r = read(STDIN_FILENO, &key[key_len], key_size - key_len);
+			if (r <= 0) {
+				if (!r)
+					break;
 				explicit_bzero(key, key_len);
 				fprintf(stderr, "%s: read <stdin>: %s\n", argv0, strerror(errno));
 				exit(1);
 			}
-			memcpy(new, key, key_len);
-			explicit_bzero(key, key_len);
-			free(key);
-			key = new;
+			key_len += (size_t)r;
 		}
-		r = read(STDIN_FILENO, &key[key_len], key_size - key_len);
-		if (r <= 0) {
-			if (!r)
-				break;
-			explicit_bzero(key, key_len);
-			fprintf(stderr, "%s: read <stdin>: %s\n", argv0, strerror(errno));
+		hash = key2root_crypt(key, key_len, parameters, 1);
+		if (!hash)
+			exit(1);
+		free(key);
+		key_size = key_len = strlen(keyname) + strlen(hash) + 2;
+		key = malloc(key_len + 1);
+		if (!key) {
+			fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
 			exit(1);
 		}
-		key_len += (size_t)r;
+		stpcpy(stpcpy(stpcpy(stpcpy(key, keyname), " "), hash), "\n");
+		free(hash);
 	}
-	for (i = 0; i < key_len; i++)
-		if (!key[i])
-			key[i] = (char)255;
-	key[key_len] = '\0';
-	hash = crypt(key, parameters);
-	if (!hash)
-		fprintf(stderr, "%s: crypt <key> %s: %s\n", argv0, parameters, strerror(errno));
-	explicit_bzero(key, key_len);
-	free(key);
-	key_size = key_len = strlen(keyname) + strlen(hash) + 2;
-	key = malloc(key_len + 1);
-	if (!key) {
-		fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
-		exit(1);
-	}
-	stpcpy(stpcpy(stpcpy(stpcpy(key, keyname), " "), hash), "\n");
 
 	path = malloc(sizeof(KEYPATH"/") + strlen(user));
 	if (!path) {

@@ -6,9 +6,13 @@ key2root-addkey - add a keyfile for privilege escalation with key2root
 .SH SYNOPSIS
 .B key2root-addkey
 [-r]
-.I user
+.RI (user
 .I key-name
 .RI [ crypt-parameters ]
+| -h
+.I user
+.I key-name
+.IR key-hash )
 
 .SH DESCRIPTION
 The
@@ -45,19 +49,27 @@ The name the keyfile shall be given.
 May not include whitespace characters.
 .TP
 .I crypt-parameters
-crypt(3) parameters that the keyfile shall be hashed with.
+.BR libar2simplified_crypt (3)
+parameters that the keyfile shall be hashed with.
+.TP
+.I key-hash
+.BR key2root-crypt (8)
+hash of the keyfile.
 
 .SH STDIN
 The
 .B key2root-addkey
 utility reads the keyfile to add from standard input,
-which must not be a TTY.
+which must not be a TTY. However if the
+.B -h
+option is used, the standard input is not used and
+may be a TTY.
 
 .SH INPUT FILES
 None.
 
 .SH ENVIRONMENT VARIABLES
-No following environment variable affects the execution of
+No environment variables affect the execution of
 .BR key2root-addkey .
 
 .SH ASYNCHRONOUS EVENTS
@@ -111,6 +123,7 @@ None.
 
 .SH SEE ALSO
 .BR key2root (8),
+.BR key2root-crypt (8),
 .BR key2root-lskeys (8),
 .BR key2root-rmkey (8)
 

@@ -13,6 +13,7 @@
 *.gcno
 *.gcda
 /key2root
-/key2root-lskeys
 /key2root-addkey
+/key2root-crypt
+/key2root-lskeys
 /key2root-rmkey

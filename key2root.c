@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "arg.h"
+#include "crypt.h"
 
 
 #define EXIT_AUTH   124
@@ -276,8 +277,9 @@ checkauth(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *lin
 		*rheadp += keyname_len + 1;
 		*key_foundp = 1;
 		data[(*rhead2p)++] = '\0';
-		hash = crypt(key, &data[*rheadp]);
+		hash = key2root_crypt(key, key_len, &data[*rheadp], 0);
 		match = hash && hashequal(hash, &data[*rheadp]);
+		free(hash);
 		*rheadp = *rhead2p;
 		return match;
 	}
@@ -360,7 +362,6 @@ main(int argc, char *argv[])
 	char path_user_id[sizeof(KEYPATH"/") + 3 * sizeof(uintmax_t)];
 	char *path_user_name;
 	struct passwd *pwd;
-	size_t i;
 
 	ARGBEGIN {
 	case 'e':
@@ -377,9 +378,6 @@ main(int argc, char *argv[])
 
 	if (!argc)
 		usage();
-
-	if (mlockall(MCL_CURRENT | MCL_FUTURE))
-		fprintf(stderr, "%s: mlockall MCL_CURRENT|MCL_FUTURE: %s\n", argv0, strerror(errno));
 
 	sprintf(path_user_id, "%s/%ju", KEYPATH, (uintmax_t)getuid());
 	errno = 0;
@@ -421,10 +419,6 @@ main(int argc, char *argv[])
 		}
 		key_len += (size_t)r;
 	}
-	for (i = 0; i < key_len; i++)
-		if (!key[i])
-			key[i] = (char)255;
-	key[key_len] = '\0';
 
 	key_found = 0;
 	if (!authenticate(path_user_id, key_name, key, key_len, &key_found) &&

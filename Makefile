@@ -3,12 +3,12 @@
 CONFIGFILE = config.mk
 include $(CONFIGFILE)
 
-BIN = key2root key2root-lskeys key2root-addkey key2root-rmkey
+BIN = key2root key2root-lskeys key2root-addkey key2root-rmkey key2root-crypt
 
-HDR = arg.h
+HDR = arg.h crypt.h
 
 MAN8 = $(BIN:=.8)
-OBJ = $(BIN:=.o)
+OBJ = $(BIN:=.o) crypt.o
 
 all: $(BIN)
 $(OBJ): $(HDR)
@@ -16,11 +16,20 @@ $(OBJ): $(HDR)
 .c.o:
 	$(CC) -c -o $@ $< $(CFLAGS) $(CPPFLAGS)
 
-.o:
-	$(CC) -o $@ $< $(LDFLAGS)
+key2root: key2root.o crypt.o
+	$(CC) -o $@ $@.o crypt.o $(LDFLAGS_CRYPT)
 
-.c:
-	$(CC) -o $@ $< $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
+key2root-lskeys: key2root-lskeys.o
+	$(CC) -o $@ $@.o $(LDFLAGS)
+
+key2root-addkey: key2root-addkey.o crypt.o
+	$(CC) -o $@ $@.o crypt.o $(LDFLAGS_CRYPT)
+
+key2root-rmkey: key2root-rmkey.o
+	$(CC) -o $@ $@.o $(LDFLAGS)
+
+key2root-crypt: key2root-crypt.o crypt.o
+	$(CC) -o $@ $@.o crypt.o $(LDFLAGS_CRYPT)
 
 install: $(BIN)
 	mkdir -p -- "$(DESTDIR)$(PREFIX)/bin"
