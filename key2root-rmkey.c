@@ -26,7 +26,7 @@ writeall(int fd, const char *data, size_t len)
 	size_t off = 0;
 	ssize_t r;
 
-	for (;;) {
+	while (off < len) {
 		r = write(fd, &data[off], len - off);
 		if (r < 0)
 			return -1;

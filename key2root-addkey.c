@@ -28,7 +28,7 @@ writeall(int fd, const char *data, size_t len)
 	size_t off = 0;
 	ssize_t r;
 
-	for (;;) {
+	while (off < len) {
 		r = write(fd, &data[off], len - off);
 		if (r < 0)
 			return -1;
@@ -36,6 +36,84 @@ writeall(int fd, const char *data, size_t len)
 	}
 
 	return 0;
+}
+
+
+static int
+checkkey(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *linenop,
+         const char *keyname, size_t klen, const char *path)
+{
+	int failed = 0;
+	size_t len;
+
+	while (*rhead2p < whead || data[*rhead2p] != '\n')
+		++*rhead2p;
+
+	if (data[*rhead2p] != '\n')
+		return 0;
+
+	len = *rhead2p - *rheadp;
+	*linenop += 1;
+
+	if (memchr(&data[*rheadp], '\0', len)) {
+		fprintf(stderr, "%s: NUL byte found in %s on line %zu\n", argv0, path, *linenop);
+		failed = 1;
+	}
+	if (!memchr(&data[*rheadp], ' ', len)) {
+		fprintf(stderr, "%s: no SP byte found in %s on line %zu\n", argv0, path, *linenop);
+		failed = 1;
+	}
+
+	if (failed || klen >= len || data[*rheadp + klen] != ' ' || memcpy(&data[*rheadp], keyname, klen)) {
+		*rheadp = ++*rhead2p;
+		return 0;
+	} else {
+		++*rhead2p;
+		return 1;
+	}
+}
+
+
+static void
+loadandlocate(size_t *beginning_out, size_t *end_out, int fd, char **datap, size_t *lenp, size_t *sizep,
+              const char *keyname, const char *path)
+{
+	size_t klen = strlen(keyname);
+	char *new;
+	size_t rhead = 0;
+	size_t rhead2 = 0;
+	size_t lineno = 0;
+	ssize_t r = 1;
+
+	while (r) {
+		if (*lenp == *sizep) {
+			new = realloc(*datap, *sizep += 4096);
+			if (!new) {
+				fprintf(stderr, "%s: realloc: %s\n", argv0, strerror(errno));
+				exit(1);
+			}
+			*datap = new;
+		}
+		r = read(fd, &(*datap)[*lenp], *sizep - *lenp);
+		if (r < 0) {
+			fprintf(stderr, "%s: read %s: %s\n", argv0, path, strerror(errno));
+			exit(1);
+		}
+		*lenp += (size_t)r;
+
+		while (rhead2 < *lenp) {
+			if (!checkkey(*datap, *lenp, &rhead, &rhead2, &lineno, keyname, klen, path))
+				continue;
+			*beginning_out = rhead;
+			*end_out = rhead = rhead2;
+		}
+	}
+
+	if (rhead != *lenp) {
+		fprintf(stderr, "%s: file truncated: %s\n", argv0, path);
+		if (memchr(&(*datap)[rhead], '\0', *lenp - rhead))
+			fprintf(stderr, "%s: NUL byte found in %s on line %zu\n", argv0, path, lineno + 1);
+	}
 }
 
 
@@ -49,6 +127,8 @@ main(int argc, char *argv[])
 	char *data = NULL;
 	size_t data_len = 0;
 	size_t data_size = 0;
+	size_t beginning = 0;
+	size_t end = 0;
 	int allow_replace = 0;
 	int failed = 0;
 	int fd;
@@ -104,15 +184,26 @@ main(int argc, char *argv[])
 	stpcpy(stpcpy(path2, path), "~");
 
 	fd = open(path, O_RDONLY);
-	if (fd < 0 && errno != ENOENT) {
-		fprintf(stderr, "%s: open %s O_RDONLY: %s\n", argv0, path, strerror(errno));
+	if (fd < 0) {
+		if (errno != ENOENT) {
+			fprintf(stderr, "%s: open %s O_RDONLY: %s\n", argv0, path, strerror(errno));
+			exit(1);
+		}
+		beginning = end = 0;
+	} else {
+		loadandlocate(&beginning, &end, fd, &data, &data_len, &data_size, keyname, path);
+		if (close(fd)) {
+			fprintf(stderr, "%s: read %s: %s\n", argv0, path, strerror(errno));
+			exit(1);
+		}
+		if (beginning == end)
+			beginning = end = 0; /* make sure the new key is not concatenated onto a truncated line at the end */
+	}
+	if (!allow_replace && beginning != end) {
+		fprintf(stderr, "%s: key already exists: %s\n", argv0, keyname);
 		exit(1);
 	}
 	/* TODO add or replace key */
-	if (fd >= 0 && close(fd)) {
-		fprintf(stderr, "%s: read %s: %s\n", argv0, path, strerror(errno));
-		exit(1);
-	}
 
 	if (mkdir(KEYPATH, 0700) && errno != EEXIST) {
 		fprintf(stderr, "%s: mkdir %s: %s\n", argv0, KEYPATH, strerror(errno));
