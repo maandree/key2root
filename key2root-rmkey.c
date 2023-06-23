@@ -70,6 +70,7 @@ removekeys(char *data, size_t *wheadp, size_t *rheadp, size_t *rhead2p, size_t *
 			klen = strlen(keys[i]);
 			if (klen >= len || data[*rheadp + klen] != ' ' || memcpy(&data[*rheadp], keys[i], klen))
 				continue;
+			/* retain key order so that they are output in the provided order if not found */
 			memmove(&keys[i], &keys[i + 1], (--*nkeysp - i) * sizeof(*keys));
 			goto match;
 		}
