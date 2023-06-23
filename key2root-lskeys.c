@@ -37,11 +37,11 @@ outputkey(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *lin
 	*linenop += 1;
 
 	if (memchr(&data[*rheadp], '\0', len)) {
-		fprintf(stderr, "%s: NUL byte found in /etc/key2root/%s on line %zu\n", argv0, user, *linenop);
+		fprintf(stderr, "%s: NUL byte found in %s/%s on line %zu\n", argv0, KEYPATH, user, *linenop);
 		failed = 1;
 	}
 	if (!memchr(&data[*rheadp], ' ', len)) {
-		fprintf(stderr, "%s: no SP byte found in /etc/key2root/%s on line %zu\n", argv0, user, *linenop);
+		fprintf(stderr, "%s: no SP byte found in %s/%s on line %zu\n", argv0, KEYPATH, user, *linenop);
 		failed = 1;
 	}
 
@@ -71,7 +71,7 @@ listkeys(int dir, const char *user)
 	if (fd < 0) {
 		if (errno == ENOENT)
 			return 0;
-		fprintf(stderr, "%s: openat /etc/key2root/ %s O_RDONLY: %s\n", argv0, user, strerror(errno));
+		fprintf(stderr, "%s: openat %s/ %s O_RDONLY: %s\n", argv0, KEYPATH, user, strerror(errno));
 		return 1;
 	}
 
@@ -92,7 +92,7 @@ listkeys(int dir, const char *user)
 		}
 		r = read(fd, &data[whead], size - whead);
 		if (r < 0) {
-			fprintf(stderr, "%s: read /etc/key2root/%s: %s\n", argv0, user, strerror(errno));
+			fprintf(stderr, "%s: read %s/%s: %s\n", argv0, KEYPATH, user, strerror(errno));
 			close(fd);
 			return 1;
 		}
@@ -103,7 +103,7 @@ listkeys(int dir, const char *user)
 	}
 
 	if (rhead != whead) {
-		fprintf(stderr, "%s: file truncated: /etc/key2root/%s\n", argv0, user);
+		fprintf(stderr, "%s: file truncated: %s/%s\n", argv0, KEYPATH, user);
 		failed = 1;
 	}
 
@@ -125,11 +125,11 @@ main(int argc, char *argv[])
 	} ARGEND;
 
 	if (argc) {
-		fd = open("/etc/key2root/", O_PATH);
+		fd = open(KEYPATH"/", O_PATH);
 		if (fd < 0) {
 			if (errno == ENOENT)
 				return 0;
-			fprintf(stderr, "%s: open /etc/key2root/ O_PATH: %s\n", argv0, strerror(errno));
+			fprintf(stderr, "%s: open %s/ O_PATH: %s\n", argv0, KEYPATH, strerror(errno));
 			exit(1);
 		}
 		for (; *argv; argv++) {
@@ -142,11 +142,11 @@ main(int argc, char *argv[])
 		}
 		close(fd);
 	} else {
-		dir = opendir("/etc/key2root/");
+		dir = opendir(KEYPATH"/");
 		if (!dir) {
 			if (errno == ENOENT)
 				return 0;
-			fprintf(stderr, "%s: opendir /etc/key2root/: %s\n", argv0, strerror(errno));
+			fprintf(stderr, "%s: opendir %s/: %s\n", argv0, KEYPATH, strerror(errno));
 			exit(1);
 		}
 		fd = dirfd(dir);
@@ -158,7 +158,7 @@ main(int argc, char *argv[])
 			listkeys(fd, f->d_name);
 		}
 		if (errno || closedir(dir)) {
-			fprintf(stderr, "%s: readdir /etc/key2root/: %s\n", argv0, strerror(errno));
+			fprintf(stderr, "%s: readdir %s/: %s\n", argv0, KEYPATH, strerror(errno));
 			exit(1);
 		}
 	}

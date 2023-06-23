@@ -166,17 +166,17 @@ main(int argc, char *argv[])
 	for (i = 0; i < (size_t)argc; i++)
 		keys[i] = argv[i];
 
-	path = malloc(sizeof("/etc/key2root/") + strlen(user));
+	path = malloc(sizeof(KEYPATH"/") + strlen(user));
 	if (!path) {
 		fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
 		exit(1);
 	}
-	path2 = malloc(sizeof("/etc/key2root/~") + strlen(user));
+	path2 = malloc(sizeof(KEYPATH"/~") + strlen(user));
 	if (!path) {
 		fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
 		exit(1);
 	}
-	stpcpy(stpcpy(path, "/etc/key2root/"), user);
+	stpcpy(stpcpy(path, KEYPATH"/"), user);
 	stpcpy(stpcpy(path2, path), "~");
 
 	fd = open(path, O_RDONLY);
