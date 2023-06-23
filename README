@@ -1,0 +1,49 @@
+NAME
+	key2root - authenticate with a keyfile and run a process as the root user
+
+SYNOPSIS
+	key2root [-k key-name] [-e] command [argument] ...
+
+DESCRIPTION
+	The key2root utility takes a keyfile from the standard input and uses
+	it to authenticate the user, and if the keyfile is recognised, runs the
+	specified command with sanitised and updated environment variables and
+	with the keyfile as the standard input.
+
+OPTIONS
+	The key2root utility conforms to the Base Definitions volume of
+	POSIX.1-2017, Section 12.2, Utility Syntax Guidelines.
+
+	The following option is supported:
+
+	-e	Keep the environment variables as is. Neither sanitise nor
+		update them.
+
+	-k key-name
+		Check the input keyfile against a specific known key, rather
+		than checking against all known keys.
+
+OPERANDS
+	The following operands are supported:
+
+	command
+		The command that shall be run with as the root user. This will
+		be both the process image and the process's zeroth command line
+		argument.
+
+	argument ...
+		Command line arguments for the command to run.
+
+STDIN
+	The key2root utility uses the standard input as the authentication key
+	and forwards it to the command it runs upon successful authentication.
+
+RATIONALE
+	key2root is useful for scripts that require both root access and a
+	keyfile: it lets the user write a script that can decrypt a keyfile
+	and the successful keyfile decryption to testify that the user has
+	authenticated himself rather also requiring his password.
+
+SEE ALSO
+	key2root-addkey(8), key2root-lskeys(8), key2root-rmkey(8), asroot(8),
+	sudo(8), doas(1), su(1)

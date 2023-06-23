@@ -1,0 +1,114 @@
+.TH KEY2ROOT 8 key2root-rmkey
+
+.SH NAME
+key2root-rmkey - remove keyfiles for privilege escalation with key2root
+
+.SH SYNOPSIS
+.B key2root-rmkey
+.I user
+.IR key-name \ ...
+
+.SH DESCRIPTION
+The
+.B key2root-rmkey
+utility removes a keyfile from the database of keyfiles that may
+be used to authenticate the specified
+.I user
+for privilege escalation with the
+.BR key2root (8)
+utility.
+
+.SH OPTIONS
+The
+.B key2root-rmkey
+utility conforms to the Base Definitions volume of POSIX.1-2017,
+.IR "Section 12.2" ,
+.IR "Utility Syntax Guidelines" .
+.PP
+No options are supported.
+
+.SH OPERANDS
+The following operands are supported:
+.TP
+.I user
+The user the keyfile shall be removed for. This can either
+be a user ID or a user name. See
+.BR NOTES .
+.TP
+.I key-name
+The name the keyfile to remove.
+
+.SH STDIN
+The
+.B key2root-rmkey
+utility does not use the standard input.
+
+.SH INPUT FILES
+None.
+
+.SH ENVIRONMENT VARIABLES
+No following environment variable affects the execution of
+.BR key2root-rmkey .
+
+.SH ASYNCHRONOUS EVENTS
+Default.
+
+.SH STDOUT
+The
+.B key2root-rmkey
+utility does not use the standard output.
+
+.SH STDERR
+The standard error is used for diagnostic messages.
+
+.SH OUTPUT FILES
+None.
+
+.SH EXTENDED DESCRIPTION
+None.
+
+.SH EXIT STATUS
+If the
+.B key2root-rmkey
+utility fails it will exit with one of the following statuses:
+.TP
+0
+Successful completion.
+.TP
+1
+A error occurred.
+
+.SH CONSEQUENCES OF ERRORS
+Default.
+
+.SH APPLICATION USAGE
+None.
+
+.SH EXAMPLES
+None.
+
+.SH RATIONALE
+None.
+
+.SH NOTES
+Keyfiles added by user ID and by user names are stored separatedly.
+If a keyfile was added with a user name specified, it is only
+associated with the user name, and the user name must be specified
+when removing it. Likewise if a keyfile was added with a user ID
+specified, it is only associated with the user ID, and the user ID
+must be specified when removing it.
+
+.SH BUGS
+None.
+
+.SH FUTURE DIRECTIONS
+None.
+
+.SH SEE ALSO
+.BR key2root (8),
+.BR key2root-addkey (8),
+.BR key2root-lskeys (8)
+
+.SH AUTHORS
+Mattias Andrée
+.RI < maandree@kth.se >
