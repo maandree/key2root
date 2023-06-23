@@ -1,8 +1,10 @@
 /* See LICENSE file for copyright and license details. */
+#include <sys/auxv.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -117,6 +119,27 @@ loadandlocate(size_t *beginning_out, size_t *end_out, int fd, char **datap, size
 }
 
 
+static char *
+mksalt(char *p)
+{
+	uintptr_t rdata_addr;
+	char *rdata;
+	size_t i;
+
+	rdata_addr = (uintptr_t)getauxval(AT_RANDOM); /* address to 16 random bytes */
+	rdata = (void *)rdata_addr;
+	if (!rdata) {
+		fprintf(stderr, "%s: getauxval AT_RANDOM: %s\n", argv0, strerror(errno));
+		exit(1);
+	}
+
+	for (i = 0; i < 16; i++)
+		*p++ = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM0123456789./"[*rdata++ & 63];
+
+	return p;
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -132,6 +155,15 @@ main(int argc, char *argv[])
 	int allow_replace = 0;
 	int failed = 0;
 	int fd;
+	char *key = NULL, *new;
+	size_t key_len = 0;
+	size_t key_size = 0;
+	char *hash;
+	size_t gap_size;
+	size_t gap_increase;
+#define HASH_PREFIX "$6$"
+	char generated_parameters[sizeof(HASH_PREFIX"$") + 16];
+	ssize_t r;
 
 	ARGBEGIN {
 	case 'r':
@@ -168,7 +200,47 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	/* TODO hash input */
+	if (!parameters) {
+		stpcpy(mksalt(stpcpy(generated_parameters, HASH_PREFIX)), "$");
+		parameters = generated_parameters;
+	}
+
+	for (;;) {
+		if (key_len == key_size) {
+			new = malloc(1 + (key_size += 1024));
+			if (!new) {
+				explicit_bzero(key, key_len);
+				fprintf(stderr, "%s: read <stdin>: %s\n", argv0, strerror(errno));
+				exit(1);
+			}
+			memcpy(new, key, key_len);
+			explicit_bzero(key, key_len);
+			free(key);
+			key = new;
+		}
+		r = read(STDIN_FILENO, &key[key_len], key_size - key_len);
+		if (r <= 0) {
+			if (!r)
+				break;
+			explicit_bzero(key, key_len);
+			fprintf(stderr, "%s: read <stdin>: %s\n", argv0, strerror(errno));
+			exit(1);
+		}
+		key_len += (size_t)r;
+	}
+	key[key_len] = '\0';
+	hash = crypt(key, parameters);
+	if (!hash)
+		fprintf(stderr, "%s: crypt <key> %s: %s\n", argv0, parameters, strerror(errno));
+	explicit_bzero(key, key_len);
+	free(key);
+	key_size = key_len = strlen(keyname) + strlen(hash) + 3;
+	key = malloc(key_len);
+	if (!key) {
+		fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
+		exit(1);
+	}
+	stpcpy(stpcpy(stpcpy(stpcpy(key, keyname), " "), hash), "\n");
 
 	path = malloc(sizeof(KEYPATH"/") + strlen(user));
 	if (!path) {
@@ -203,7 +275,27 @@ main(int argc, char *argv[])
 		fprintf(stderr, "%s: key already exists: %s\n", argv0, keyname);
 		exit(1);
 	}
-	/* TODO add or replace key */
+	if (end < beginning)
+		abort();
+	gap_size = end - beginning;
+	if (gap_size > key_len) {
+		memmove(&data[beginning + key_len], &data[end], data_len - end);
+		data_len -= key_len - gap_size;
+	} else if (gap_size < key_len) {
+		gap_increase = key_len - gap_size;
+		if (data_len + gap_increase > data_size) {
+			data_size = data_len + gap_increase;
+			data = realloc(data, data_size);
+			if (!data) {
+				fprintf(stderr, "%s: realloc: %s\n", argv0, strerror(errno));
+				exit(1);
+			}
+		}
+		memmove(&data[end], &data[end + gap_increase], data_len - end);
+		data_len += gap_increase;
+	}
+	memcpy(&data[beginning], key, key_len);
+	free(key);
 
 	if (mkdir(KEYPATH, 0700) && errno != EEXIST) {
 		fprintf(stderr, "%s: mkdir %s: %s\n", argv0, KEYPATH, strerror(errno));
