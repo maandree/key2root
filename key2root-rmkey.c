@@ -19,6 +19,9 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+	const char *user;
+	int i, failed = 0;
+
 	ARGBEGIN {
 	default:
 		usage();
@@ -26,6 +29,24 @@ main(int argc, char *argv[])
 
 	if (argc < 2)
 		usage();
+
+	user = *argv++;
+	argc--;
+
+	if (!user[0] || user[0] == '.' || strchr(user, '/') || strchr(user, '~')) {
+		fprintf(stderr, "%s: bad user name specified: %s\n", argv0, user);
+		failed = 1;
+	}
+	for (i = 0; i < argc; i++) {
+		if (argv[i][strcspn(argv[i], " \t\f\n\r\v")]) {
+			fprintf(stderr, "%s: bad key name specified: %s, includes whitespace\n", argv0, argv[i]);
+			failed = 1;
+		}
+	}
+	if (failed)
+		return 1;
+
+	/* TODO */
 
 	return 0;
 }
