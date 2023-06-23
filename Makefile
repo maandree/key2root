@@ -42,7 +42,7 @@ install: $(BIN)
 	cp -- $(MAN8) "$(DESTDIR)$(MANPREFIX)/man8/"
 
 uninstall:
-	-cd -- "$(DESTDIR)$(PREFIX)/bin/" && rm -f -- $(BIND)
+	-cd -- "$(DESTDIR)$(PREFIX)/bin/" && rm -f -- $(BIN)
 	-cd -- "$(DESTDIR)$(MANPREFIX)/man8/" && rm -f -- $(MAN8)
 
 clean:
