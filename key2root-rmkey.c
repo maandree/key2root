@@ -45,7 +45,7 @@ removekeys(char *data, size_t *wheadp, size_t *rheadp, size_t *rhead2p, size_t *
 	size_t len, klen;
 	size_t i;
 
-	while (*rhead2p < *wheadp || data[*rhead2p] != '\n')
+	while (*rhead2p < *wheadp && data[*rhead2p] != '\n')
 		++*rhead2p;
 
 	if (data[*rhead2p] != '\n')
@@ -68,7 +68,7 @@ removekeys(char *data, size_t *wheadp, size_t *rheadp, size_t *rhead2p, size_t *
 	} else {
 		for (i = 0; i < *nkeysp; i++) {
 			klen = strlen(keys[i]);
-			if (klen >= len || data[*rheadp + klen] != ' ' || memcpy(&data[*rheadp], keys[i], klen))
+			if (klen >= len || data[*rheadp + klen] != ' ' || memcmp(&data[*rheadp], keys[i], klen))
 				continue;
 			/* retain key order so that they are output in the provided order if not found */
 			memmove(&keys[i], &keys[i + 1], (--*nkeysp - i) * sizeof(*keys));

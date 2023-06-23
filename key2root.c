@@ -224,6 +224,20 @@ set_environ(void)
 
 
 static int
+hashequal(const char *a, const char *b)
+{
+	size_t an = strlen(a) + 1;
+	size_t bn = strlen(b) + 1;
+	size_t n = an < bn ? an : bn;
+	size_t i;
+	int diff = 0;
+	for (i = 0; i < n; i++)
+		diff |= a[i] ^ b[i];
+	return !diff;
+}
+
+
+static int
 checkauth(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *linenop, const char *path,
           const char *keyname, size_t keyname_len, const char *key, size_t key_len, int *key_foundp)
 {
@@ -231,7 +245,7 @@ checkauth(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *lin
 	char *hash, *sp;
 	size_t len;
 
-	while (*rhead2p < whead || data[*rhead2p] != '\n')
+	while (*rhead2p < whead && data[*rhead2p] != '\n')
 		++*rhead2p;
 
 	if (data[*rhead2p] != '\n')
@@ -254,7 +268,7 @@ checkauth(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *lin
 		keyname_len = (size_t)(sp - &data[*rheadp]);
 		goto check;
 	} else if (failed || keyname_len >= len || data[*rheadp + keyname_len] != ' ' ||
-	           memcpy(&data[*rheadp], keyname, keyname_len)) {
+	           memcmp(&data[*rheadp], keyname, keyname_len)) {
 		*rheadp = ++*rhead2p;
 		return 0;
 	} else {
@@ -263,7 +277,7 @@ checkauth(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *lin
 		*key_foundp = 1;
 		data[(*rhead2p)++] = '\0';
 		hash = crypt(key, &data[*rheadp]);
-		match = hash && strlen(hash) == key_len && !memcmp(hash, key, key_len);
+		match = hash && hashequal(hash, &data[*rheadp]);
 		*rheadp = *rhead2p;
 		return match;
 	}
@@ -364,10 +378,8 @@ main(int argc, char *argv[])
 	if (!argc)
 		usage();
 
-	if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
+	if (mlockall(MCL_CURRENT | MCL_FUTURE))
 		fprintf(stderr, "%s: mlockall MCL_CURRENT|MCL_FUTURE: %s\n", argv0, strerror(errno));
-		exit(EXIT_ERROR);
-	}
 
 	sprintf(path_user_id, "%s/%ju", KEYPATH, (uintmax_t)getuid());
 	errno = 0;
@@ -419,7 +431,7 @@ main(int argc, char *argv[])
 	    !authenticate(path_user_name, key_name, key, key_len, &key_found)) {
 		fprintf(stderr, "%s: authentication failed: %s\n", argv0,
 		        key_name ? (key_found ? "key mismatch" : "key not found")
-		                 : (key_found ? "no match key found" : "no key found"));
+		                 : (key_found ? "no matching key found" : "no key found"));
 		explicit_bzero(key, key_len);
 		exit(EXIT_AUTH);
 	}

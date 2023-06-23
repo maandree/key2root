@@ -48,7 +48,7 @@ checkkey(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *line
 	int failed = 0;
 	size_t len;
 
-	while (*rhead2p < whead || data[*rhead2p] != '\n')
+	while (*rhead2p < whead && data[*rhead2p] != '\n')
 		++*rhead2p;
 
 	if (data[*rhead2p] != '\n')
@@ -66,7 +66,7 @@ checkkey(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *line
 		failed = 1;
 	}
 
-	if (failed || klen >= len || data[*rheadp + klen] != ' ' || memcpy(&data[*rheadp], keyname, klen)) {
+	if (failed || klen >= len || data[*rheadp + klen] != ' ' || memcmp(&data[*rheadp], keyname, klen)) {
 		*rheadp = ++*rhead2p;
 		return 0;
 	} else {
@@ -196,10 +196,8 @@ main(int argc, char *argv[])
 	if (failed)
 		return 1;
 
-	if (mlockall(MCL_CURRENT | MCL_FUTURE)) {
+	if (mlockall(MCL_CURRENT | MCL_FUTURE))
 		fprintf(stderr, "%s: mlockall MCL_CURRENT|MCL_FUTURE: %s\n", argv0, strerror(errno));
-		exit(1);
-	}
 
 	if (!parameters) {
 		stpcpy(mksalt(stpcpy(generated_parameters, HASH_PREFIX)), "$");
@@ -238,8 +236,8 @@ main(int argc, char *argv[])
 		fprintf(stderr, "%s: crypt <key> %s: %s\n", argv0, parameters, strerror(errno));
 	explicit_bzero(key, key_len);
 	free(key);
-	key_size = key_len = strlen(keyname) + strlen(hash) + 3;
-	key = malloc(key_len);
+	key_size = key_len = strlen(keyname) + strlen(hash) + 2;
+	key = malloc(key_len + 1);
 	if (!key) {
 		fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
 		exit(1);
@@ -284,7 +282,7 @@ main(int argc, char *argv[])
 	gap_size = end - beginning;
 	if (gap_size > key_len) {
 		memmove(&data[beginning + key_len], &data[end], data_len - end);
-		data_len -= key_len - gap_size;
+		data_len -= gap_size - key_len;
 	} else if (gap_size < key_len) {
 		gap_increase = key_len - gap_size;
 		if (data_len + gap_increase > data_size) {
@@ -295,7 +293,7 @@ main(int argc, char *argv[])
 				exit(1);
 			}
 		}
-		memmove(&data[end], &data[end + gap_increase], data_len - end);
+		memmove(&data[end + gap_increase], &data[end], data_len - end);
 		data_len += gap_increase;
 	}
 	memcpy(&data[beginning], key, key_len);

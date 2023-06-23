@@ -27,7 +27,7 @@ outputkey(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *lin
 	int failed = 0;
 	size_t len;
 
-	while (*rhead2p < whead || data[*rhead2p] != '\n')
+	while (*rhead2p < whead && data[*rhead2p] != '\n')
 		++*rhead2p;
 
 	if (data[*rhead2p] != '\n')
