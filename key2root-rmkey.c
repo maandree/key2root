@@ -199,7 +199,7 @@ main(int argc, char *argv[])
 out:
 	for (i = 0; i < nkeys; i++)
 		fprintf(stderr, "%s: key not found for %s: %s\n", argv0, user, keys[i]);
-	failed |= !nkeys;
+	failed |= nkeys > 0;
 
 	if (nkeys != (size_t)argc) {
 		if (!data_len) {
