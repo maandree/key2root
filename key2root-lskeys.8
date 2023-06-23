@@ -54,7 +54,13 @@ Default.
 .SH STDOUT
 The
 .B key2root-lskeys
-utility does not use the standard output.
+utility prints the files to the standard output, in the following format:
+.RS
+.nf
+
+\fB\(dq%s %s %s\en\(dq, \fP<\fIuser\fP>\fB, \fP<\fIkey-name\fP>\fB, \fP<\fIkey-hash\fP>
+.fi
+.RE
 
 .SH STDERR
 The standard error is used for diagnostic messages.
