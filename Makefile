@@ -31,6 +31,9 @@ key2root-rmkey: key2root-rmkey.o
 key2root-crypt: key2root-crypt.o crypt.o
 	$(CC) -o $@ $@.o crypt.o $(LDFLAGS_CRYPT)
 
+check: key2root-crypt
+	+@$(MAKE) -f .pepper-validation.mk check ## DO NOT REMOVE
+
 install: $(BIN)
 	mkdir -p -- "$(DESTDIR)$(PREFIX)/bin"
 	mkdir -p -- "$(DESTDIR)$(MANPREFIX)/man8/"
@@ -49,4 +52,4 @@ clean:
 .SUFFIXES:
 .SUFFIXES: .o .c
 
-.PHONY: all install uninstall clean
+.PHONY: all check install uninstall clean

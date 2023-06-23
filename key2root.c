@@ -240,7 +240,7 @@ hashequal(const char *a, const char *b)
 
 static int
 checkauth(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *linenop, const char *path,
-          const char *keyname, size_t keyname_len, const char *key, size_t key_len, int *key_foundp)
+          const char *keyname, size_t keyname_len, char *key, size_t key_len, int *key_foundp)
 {
 	int failed = 0, match;
 	char *hash, *sp;
@@ -287,7 +287,7 @@ checkauth(char *data, size_t whead, size_t *rheadp, size_t *rhead2p, size_t *lin
 
 
 static int
-authenticate(const char *path, const char *keyname, const char *key, size_t key_len, int *key_foundp)
+authenticate(const char *path, const char *keyname, char *key, size_t key_len, int *key_foundp)
 {
 	int fd;
 	char *data = NULL;

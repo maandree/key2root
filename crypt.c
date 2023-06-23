@@ -10,6 +10,15 @@
 extern char *argv0;
 
 
+static unsigned char pepper[] = {
+	/* DO NOT MODIFY !!! */
+	0x45, 0xf3, 0x4d, 0x3d, 0x14, 0xf9, 0x4b, 0x9a,
+	0x56, 0xda, 0x12, 0xd5, 0x45, 0x35, 0x94, 0x74,
+	0x93, 0x1d, 0x04, 0xb1, 0xea, 0x9e, 0x20, 0x49,
+	0xce, 0x5d, 0xdc, 0x58, 0x82, 0x90, 0xed, 0xff
+};
+
+
 char *
 key2root_crypt(char *msg, size_t msglen, const char *paramstr, int autoerase)
 {
@@ -20,6 +29,7 @@ key2root_crypt(char *msg, size_t msglen, const char *paramstr, int autoerase)
 
 	libar2simplified_init_context(&ctx);
 	ctx.autoerase_message = (unsigned char)autoerase;
+	ctx.autoerase_secret = 0;
 
 	if (!paramstr)
 		paramstr = libar2simplified_recommendation(0);
@@ -33,6 +43,9 @@ key2root_crypt(char *msg, size_t msglen, const char *paramstr, int autoerase)
 		fprintf(stderr, "%s: libar2simplified_decode_r %s: excess data at end parameter string: %s\n", argv0, paramstr, end);
 		goto out;
 	}
+
+	params->key = pepper;
+	params->keylen = sizeof(pepper);
 
 	size = libar2_hash_buf_size(params);
 	if (!size)
