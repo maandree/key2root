@@ -67,7 +67,7 @@ main(int argc, char *argv[])
 
 	/* TODO hash input */
 	/* TODO add or replace key */
-	/* TODO save changes, mode shall be 0700 */
+	/* TODO save changes, mode shall be 0600 */
 
 	return 0;
 }
