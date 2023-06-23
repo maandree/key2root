@@ -21,14 +21,36 @@ usage(void)
 }
 
 
+static int
+writeall(int fd, const char *data, size_t len)
+{
+	size_t off = 0;
+	ssize_t r;
+
+	for (;;) {
+		r = write(fd, &data[off], len - off);
+		if (r < 0)
+			return -1;
+		off += (size_t)r;
+	}
+
+	return 0;
+}
+
+
 int
 main(int argc, char *argv[])
 {
 	const char *user;
 	const char *keyname;
 	const char *parameters;
+	char *path, *path2;
+	char *data = NULL;
+	size_t data_len = 0;
+	size_t data_size = 0;
 	int allow_replace = 0;
 	int failed = 0;
+	int fd;
 
 	ARGBEGIN {
 	case 'r':
@@ -66,8 +88,55 @@ main(int argc, char *argv[])
 	}
 
 	/* TODO hash input */
-	/* TODO add or replace key */
-	/* TODO save changes, mode shall be 0600 */
 
+	path = malloc(sizeof(KEYPATH"/") + strlen(user));
+	if (!path) {
+		fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
+		exit(1);
+	}
+	path2 = malloc(sizeof(KEYPATH"/~") + strlen(user));
+	if (!path) {
+		fprintf(stderr, "%s: malloc: %s\n", argv0, strerror(errno));
+		exit(1);
+	}
+	stpcpy(stpcpy(path, KEYPATH"/"), user);
+	stpcpy(stpcpy(path2, path), "~");
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0 && errno != ENOENT) {
+		fprintf(stderr, "%s: open %s O_RDONLY: %s\n", argv0, path, strerror(errno));
+		exit(1);
+	}
+	/* TODO add or replace key */
+	if (fd >= 0 && close(fd)) {
+		fprintf(stderr, "%s: read %s: %s\n", argv0, path, strerror(errno));
+		exit(1);
+	}
+
+	fd = open(path2, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	if (fd < 0) {
+		fprintf(stderr, "%s: open %s O_WRONLY|O_CREAT|O_EXCL 0600: %s\n", argv0, path2, strerror(errno));
+		exit(1);
+	}
+	if (writeall(fd, data, data_len)) {
+		fprintf(stderr, "%s: write %s: %s\n", argv0, path2, strerror(errno));
+		close(fd);
+		goto saved_failed;
+	}
+	if (close(fd)) {
+		fprintf(stderr, "%s: write %s: %s\n", argv0, path2, strerror(errno));
+		goto saved_failed;
+	}
+	if (rename(path2, path)) {
+		fprintf(stderr, "%s: rename %s %s: %s\n", argv0, path2, path, strerror(errno));
+	saved_failed:
+		if (unlink(path2))
+			fprintf(stderr, "%s: unlink %s: %s\n", argv0, path2, strerror(errno));
+		exit(1);
+	}
+
+	free(path);
+	free(path2);
+	free(data);
 	return 0;
 }

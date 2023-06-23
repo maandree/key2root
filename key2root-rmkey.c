@@ -212,7 +212,7 @@ out:
 			}
 			if (writeall(fd, data, data_len)) {
 				fprintf(stderr, "%s: write %s: %s\n", argv0, path2, strerror(errno));
-				close(fd)
+				close(fd);
 				goto saved_failed;
 			}
 			if (close(fd)) {
