@@ -231,7 +231,7 @@ main(int argc, char *argv[])
 	}
 	for (i = 0; i < key_len; i++)
 		if (!key[i])
-			key[i] = 255;
+			key[i] = (char)255;
 	key[key_len] = '\0';
 	hash = crypt(key, parameters);
 	if (!hash)
