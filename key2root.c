@@ -1,5 +1,7 @@
 /* See LICENSE file for copyright and license details. */
 #include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
 #include <errno.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -82,6 +84,61 @@ usage(void)
 {
 	fprintf(stderr, "usage: %s [-k key-name] [-e] command [argument] ...\n", argv0);
 	exit(EXIT_ERROR);
+}
+
+
+static int
+forward(char *data, size_t len)
+{
+	int fds[2];
+	size_t off;
+	ssize_t r;
+
+	/* We are using sockets because they cannot be hijacked via /proc/<pid>/fd/ */
+
+	if (socketpair(PF_LOCAL, SOCK_STREAM, 0, fds)) {
+		fprintf(stderr, "%s: socketpair PF_LOCAL SOCK_STREAM 0: %s\n", argv0, strerror(errno));
+		return -1;
+	}
+	if (shutdown(fds[0], SHUT_WR)) {
+		fprintf(stderr, "%s: shutdown <socket> SHUT_WR: %s\n", argv0, strerror(errno));
+		close(fds[0]);
+		close(fds[1]);
+		return -1;
+	}
+	if (shutdown(fds[1], SHUT_RD)) {
+		fprintf(stderr, "%s: shutdown <socket> SHUT_RD: %s\n", argv0, strerror(errno));
+		close(fds[0]);
+		close(fds[1]);
+		return -1;
+	}
+
+	switch (fork()) {
+	case -1:
+		fprintf(stderr, "%s: fork: %s\n", argv0, strerror(errno));
+		close(fds[0]);
+		close(fds[1]);
+		return -1;
+	case 0:
+		close(fds[0]);
+		break;
+	default:
+		close(fds[1]);
+		return fds[0];
+	}
+
+	for (off = 0; off < len; off += (size_t)r) {
+		r = write(fds[1], &data[off], len - off);
+		if (r < 0) {
+			fprintf(stderr, "%s: write <socket>: %s\n", argv0, strerror(errno));
+			close(fds[1]);
+			_exit(1);
+		}
+		explicit_bzero(&data[off], (size_t)r);
+	}
+
+	close(fds[1]);
+	_exit(0);
 }
 
 
@@ -172,6 +229,7 @@ main(int argc, char *argv[])
 	size_t key_len = 0;
 	size_t key_size = 0;
 	ssize_t r;
+	int fd;
 
 	ARGBEGIN {
 	case 'e':
@@ -219,7 +277,12 @@ main(int argc, char *argv[])
 	}
 
 	/* TODO authenticate */
-	/* TODO forward */
+
+	fd = forward(key, key_len);
+	if (fd < 0) {
+		explicit_bzero(key, key_len);
+		exit(EXIT_ERROR);
+	}
 
 	explicit_bzero(key, key_len);
 
@@ -233,6 +296,14 @@ main(int argc, char *argv[])
 	if (setuid(0)) {
 		fprintf(stderr, "%s: setuid 0: %s\n", argv0, strerror(errno));
 		exit(EXIT_ERROR);
+	}
+
+	if (fd != STDIN_FILENO) {
+		if (dup2(fd, STDIN_FILENO) != STDIN_FILENO) {
+			fprintf(stderr, "%s: dup2 <socket> <stdin>: %s\n", argv0, strerror(errno));
+			exit(EXIT_ERROR);
+		}
+		close(fd);
 	}
 
 	if (new_environ)
