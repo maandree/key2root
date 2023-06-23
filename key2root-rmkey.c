@@ -210,14 +210,18 @@ out:
 				fprintf(stderr, "%s: open %s O_WRONLY|O_CREAT|O_EXCL 0600: %s\n", argv0, path2, strerror(errno));
 				exit(1);
 			}
-			if (writeall(fd, data, data_len) || close(fd)) {
+			if (writeall(fd, data, data_len)) {
 				fprintf(stderr, "%s: write %s: %s\n", argv0, path2, strerror(errno));
-				if (unlink(path2))
-					fprintf(stderr, "%s: unlink %s: %s\n", argv0, path2, strerror(errno));
-				exit(1);
+				close(fd)
+				goto saved_failed;
+			}
+			if (close(fd)) {
+				fprintf(stderr, "%s: write %s: %s\n", argv0, path2, strerror(errno));
+				goto saved_failed;
 			}
 			if (rename(path2, path)) {
 				fprintf(stderr, "%s: rename %s %s: %s\n", argv0, path2, path, strerror(errno));
+			saved_failed:
 				if (unlink(path2))
 					fprintf(stderr, "%s: unlink %s: %s\n", argv0, path2, strerror(errno));
 				exit(1);
