@@ -17,7 +17,7 @@ $(OBJ): $(HDR)
 	$(CC) -c -o $@ $< $(CFLAGS) $(CPPFLAGS)
 
 key2root: key2root.o crypt.o
-	$(CC) -o $@ $@.o crypt.o $(LDFLAGS_CRYPT)
+	$(CC) -o $@ $@.o crypt.o $(LDFLAGS_SU)
 
 key2root-lskeys: key2root-lskeys.o
 	$(CC) -o $@ $@.o $(LDFLAGS)

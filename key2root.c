@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <libenv.h>
 
 #include "arg.h"
 #include "crypt.h"
@@ -22,64 +23,6 @@
 
 
 char *argv0;
-
-/* Keep list in sync with asroot(8)'s list */
-static const char *env_whitelist[] = {
-	"DISPLAY=",
-	"WAYLAND_DISPLAY=",
-	"PATH=",
-	"TERM=",
-	"COLORTERM=",
-	"XAUTHORITY=",
-	"LANG=",
-	"LANGUAGE=",
-	"LOCALE=",
-	"LC_CTYPE=",
-	"LC_NUMERIC=",
-	"LC_TIME=",
-	"LC_COLLATE=",
-	"LC_MONETARY=",
-	"LC_MESSAGES=",
-	"LC_PAPER=",
-	"LC_NAME=",
-	"LC_ADDRESS=",
-	"LC_TELEPHONE=",
-	"LC_MEASUREMENT=",
-	"LC_IDENTIFICATION=",
-	"LC_ALL=",
-	"LOCPATH=",
-	"NLSPATH=",
-	"TZ=",
-	"TZDIR=",
-	"SDL_VIDEO_FULLSCREEN_DISPLAY=",
-	"EDITOR=",
-	"VISUAL=",
-	"BROWSER=",
-	"DESKTOP_SESSION=",
-	"LS_COLORS=",
-	"GTK_THEME=",
-	"QT_STYLE_OVERRIDE=",
-	"PWD=",
-	"OLDPWD=",
-	"JAVA_HOME=",
-	"_JAVA_AWT_WM_NONREPARENTING=",
-	"_JAVA_OPTIONS=",
-	"MAIN_ALSA_MIXER=",
-	"MAIN_ALSA_CARD=",
-	"XDG_SEAT=",
-	"XDG_SESSION_TYPE=",
-	"XDG_SESSION_CLASS=",
-	"XDG_VTNR=",
-	"XDG_SESSION_ID=",
-	"XDG_DATA_DIRS=",
-	"XDG_CONFIG_DIRS=",
-	"MANPATH=",
-	"INFODIR=",
-	"PAGER=",
-	"ftp_proxy=",
-	"http_proxy=",
-	NULL
-};
 
 
 static void
@@ -147,28 +90,12 @@ forward(char *data, size_t len)
 }
 
 
-static char **
+static void
 set_environ(void)
 {
-	char **new_environ;
-	size_t i, j, n, len;
+	char *str;
+	size_t len;
 	struct passwd *pw;
-
-	new_environ = calloc(sizeof(env_whitelist) / sizeof(*env_whitelist) + 5, sizeof(*env_whitelist));
-	if (!new_environ) {
-		fprintf(stderr, "%s: calloc %zu %zu: %s\n",
-			argv0, sizeof(env_whitelist) / sizeof(*env_whitelist) + 5, sizeof(*env_whitelist), strerror(errno));
-		exit(EXIT_ERROR);
-	}
-	for (i = 0, n = 0; env_whitelist[i]; i++) {
-		len = strlen(env_whitelist[i]);
-		for (j = 0; environ[j]; j++) {
-			if (!strncmp(environ[j], env_whitelist[i], len)) {
-				new_environ[n++] = environ[j];
-				break;
-			}
-		}
-	}
 
 	errno = 0;
 	pw = getpwuid(0);
@@ -180,47 +107,32 @@ set_environ(void)
 		exit(EXIT_ERROR);
 	}
 
+	libenv_select_variable_list((const char **)(void *)environ, LIBENV_SU_SAFE, LIBENV_END);
+
 	if (pw->pw_dir && *pw->pw_dir) {
-		len = strlen(pw->pw_dir);
-		len += sizeof("HOME=");
-		new_environ[n] = malloc(len);
-		if (!new_environ[n])
-			fprintf(stderr, "%s: malloc %zu: %s\n", argv0, len, strerror(errno));
-		stpcpy(stpcpy(new_environ[n++], "HOME="), pw->pw_dir);
+		if (setenv("HOME", pw->pw_dir, 1))
+			fprintf(stderr, "%s: setenv HOME %s 1: %s\n", argv0, pw->pw_dir, strerror(errno));
 	}
 	if (pw->pw_name && *pw->pw_name) {
-		len = strlen(pw->pw_name);
-		len += sizeof("LOGNAME=");
-		new_environ[n] = malloc(len);
-		if (!new_environ[n])
-			fprintf(stderr, "%s: malloc %zu: %s\n", argv0, len, strerror(errno));
-		stpcpy(stpcpy(new_environ[n++], "LOGNAME="), pw->pw_name);
+		if (setenv("LOGNAME", pw->pw_name, 1))
+			fprintf(stderr, "%s: setenv LOGNAME %s 1: %s\n", argv0, pw->pw_name, strerror(errno));
 
-		len -= sizeof("LOGNAME=");
-		len += sizeof("USER=");
-		new_environ[n] = malloc(len);
-		if (!new_environ[n])
-			fprintf(stderr, "%s: malloc %zu: %s\n", argv0, len, strerror(errno));
-		stpcpy(stpcpy(new_environ[n++], "USER="), pw->pw_name);
+		if (setenv("USER", pw->pw_name, 1))
+			fprintf(stderr, "%s: setenv USER %s 1: %s\n", argv0, pw->pw_name, strerror(errno));
 
-		len -= sizeof("USER=");
-		len += sizeof("MAIL=/var/spool/mail/");
-		new_environ[n] = malloc(len);
-		if (!new_environ[n])
+		len = sizeof("/var/spool/mail/") + strlen(pw->pw_name);
+		str = malloc(len);
+		if (!str)
 			fprintf(stderr, "%s: malloc %zu: %s\n", argv0, len, strerror(errno));
-		stpcpy(stpcpy(new_environ[n++], "MAIL=/var/spool/mail/"), pw->pw_name);
+		stpcpy(stpcpy(str, "/var/spool/mail/"), pw->pw_name);
+		if (setenv("MAIL", str, 1))
+			fprintf(stderr, "%s: setenv MAIL %s 1: %s\n", argv0, str, strerror(errno));
+		free(str);
 	}
 	if (pw->pw_shell && *pw->pw_shell) {
-		len = strlen(pw->pw_shell);
-		len += sizeof("SHELL=");
-		new_environ[n] = malloc(len);
-		if (!new_environ[n])
-			fprintf(stderr, "%s: malloc %zu: %s\n", argv0, len, strerror(errno));
-		stpcpy(stpcpy(new_environ[n++], "SHELL="), pw->pw_shell);
+		if (setenv("SHELL", pw->pw_shell, 1))
+			fprintf(stderr, "%s: setenv SHELL %s 1: %s\n", argv0, pw->pw_shell, strerror(errno));
 	}
-	new_environ[n] = NULL;
-
-	return new_environ;
 }
 
 
@@ -352,7 +264,6 @@ int
 main(int argc, char *argv[])
 {
 	int keep_env = 0;
-	char **new_environ = NULL;
 	const char *key_name = NULL;
 	char *key = NULL, *key_new;
 	size_t key_len = 0;
@@ -439,9 +350,6 @@ main(int argc, char *argv[])
 
 	explicit_bzero(key, key_len);
 
-	if (!keep_env)
-		new_environ = set_environ();
-
 	if (setgid(0)) {
 		fprintf(stderr, "%s: setgid 0: %s\n", argv0, strerror(errno));
 		exit(EXIT_ERROR);
@@ -459,8 +367,8 @@ main(int argc, char *argv[])
 		close(fd);
 	}
 
-	if (new_environ)
-		environ = new_environ;
+	if (!keep_env)
+		set_environ();
 	execvp(argv[0], argv);
 	fprintf(stderr, "%s: execvpe %s: %s\n", argv0, argv[0], strerror(errno));
 	return errno == ENOENT ? EXIT_NOENT : EXIT_EXEC;
