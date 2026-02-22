@@ -1,4 +1,4 @@
-.TH KEY2ROOT 8 key2root
+.TH KEY2ROOT 8 KEY2ROOT
 
 .SH NAME
 key2root - authenticate with a keyfile and run a process as the root user
@@ -76,7 +76,7 @@ The
 .B key2root
 utility does not use the standard output, however the
 .I command
-it starts may.
+it starts may use the standard output.
 
 .SH STDERR
 The standard error is used for diagnostic messages. The
@@ -100,7 +100,7 @@ utility fails it will exit with one of the following statuses:
 Authentication failed. (May have an actual error as the cause.)
 .TP
 125
-A error occurred.
+An error occurred.
 .TP
 126
 The process failed to change process image.
@@ -135,11 +135,11 @@ his password.
 The
 .I PATH
 environment variable will not be updated.
-Updates environment variables are:
+Updated environment variables are:
 .IR HOME ,
 .IR LOGNAME ,
 .IR MAIL ,
-.IR SHEEL ,
+.IR SHELL ,
 and
 .IR USER .
 
